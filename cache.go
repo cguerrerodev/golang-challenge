@@ -45,7 +45,7 @@ func (c *TransparentCache) GetPriceFor(itemCode string) (float64, error) {
 	price, ok := c.prices[itemCode]
 	if ok {
 		// TODO: Improve validation
-		if (time.Now().Nanosecond() - price.lastReading.Nanosecond()) <= int(c.maxAge.Nanoseconds()) {
+		if (time.Now().Sub(price.lastReading)) <= c.maxAge {
 			return price.value, nil
 		}
 	}
