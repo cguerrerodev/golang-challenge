@@ -42,9 +42,9 @@ func NewTransparentCache(actualPriceService PriceService, maxAge time.Duration) 
 
 // GetPriceFor gets the price for the item, either from the cache or the actual service if it was not cached or too old
 func (c *TransparentCache) GetPriceFor(itemCode string) (float64, error) {
+
 	price, ok := c.prices[itemCode]
 	if ok {
-		// TODO: Improve validation
 		if (time.Now().Sub(price.lastReading)) <= c.maxAge {
 			return price.value, nil
 		}
