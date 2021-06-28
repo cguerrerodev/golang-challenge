@@ -27,6 +27,11 @@ type priceInformation struct {
 	value       float64
 }
 
+type result struct {
+	price float64
+	err   error
+}
+
 func NewTransparentCache(actualPriceService PriceService, maxAge time.Duration) *TransparentCache {
 	return &TransparentCache{
 		actualPriceService: actualPriceService,
@@ -62,40 +67,31 @@ func (c *TransparentCache) GetPriceFor(itemCode string) (float64, error) {
 // If any of the operations returns an error, it should return an error as well
 func (c *TransparentCache) GetPricesFor(itemCodes ...string) ([]float64, error) {
 	results := []float64{}
-	ch := make(chan result, len(itemCodes))
 
-	// TODO: parallelize this, it can be optimized to not make the calls to the external service sequentially
-	c.GetPricesForAsc(ch, itemCodes...)
+	ch := make(chan result, len(itemCodes))
+	c.getPricesForAsy(ch, itemCodes...)
 
 	for r := range ch {
-
 		if r.err != nil {
 			return []float64{}, r.err
 		}
 		results = append(results, r.price)
 	}
-
 	return results, nil
 }
 
-type result struct {
-	price float64
-	err   error
-}
-
-func (c *TransparentCache) GetPricesForAsc(ch chan result, itemCodes ...string) {
+func (c *TransparentCache) getPricesForAsy(ch chan result, itemCodes ...string) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(itemCodes))
 	for _, itemCode := range itemCodes {
-		// TODO: parallelize this, it can be optimized to not make the calls to the external service sequentially
-		go c.GetPriceForAsc(itemCode, ch, &wg)
+		go c.getPriceForAsy(itemCode, ch, &wg)
 	}
 	wg.Wait()
 	close(ch)
 }
 
-func (c *TransparentCache) GetPriceForAsc(itemCode string, ch chan result, wg *sync.WaitGroup) {
+func (c *TransparentCache) getPriceForAsy(itemCode string, ch chan result, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
