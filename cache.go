@@ -2,6 +2,7 @@ package sample1
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -61,14 +62,10 @@ func (c *TransparentCache) GetPriceFor(itemCode string) (float64, error) {
 // If any of the operations returns an error, it should return an error as well
 func (c *TransparentCache) GetPricesFor(itemCodes ...string) ([]float64, error) {
 	results := []float64{}
-	ch := make(chan result, 10)
+	ch := make(chan result, len(itemCodes))
 
-	for _, itemCode := range itemCodes {
-		// TODO: parallelize this, it can be optimized to not make the calls to the external service sequentially
-		go c.GetPriceForAsc(itemCode, ch)
-	}
-
-	close(ch)
+	// TODO: parallelize this, it can be optimized to not make the calls to the external service sequentially
+	c.GetPricesForAsc(ch, itemCodes...)
 
 	for r := range ch {
 
@@ -86,7 +83,21 @@ type result struct {
 	err   error
 }
 
-func (c *TransparentCache) GetPriceForAsc(itemCode string, ch chan result) {
+func (c *TransparentCache) GetPricesForAsc(ch chan result, itemCodes ...string) {
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(itemCodes))
+	for _, itemCode := range itemCodes {
+		// TODO: parallelize this, it can be optimized to not make the calls to the external service sequentially
+		go c.GetPriceForAsc(itemCode, ch, &wg)
+	}
+	wg.Wait()
+	close(ch)
+}
+
+func (c *TransparentCache) GetPriceForAsc(itemCode string, ch chan result, wg *sync.WaitGroup) {
+
+	defer wg.Done()
 
 	price, err := c.GetPriceFor(itemCode)
 	ch <- result{
