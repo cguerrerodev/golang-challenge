@@ -1,10 +1,10 @@
 package sample1
 
 import (
-	"testing"
-	"time"
 	"fmt"
 	"sort"
+	"testing"
+	"time"
 )
 
 // mockResult has the float64 and err to return

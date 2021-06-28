@@ -1,8 +1,8 @@
 package sample1
 
 import (
-	"time"
 	"fmt"
+	"time"
 )
 
 // PriceService is a service that we can use to get prices for the items
@@ -14,17 +14,23 @@ type PriceService interface {
 // TransparentCache is a cache that wraps the actual service
 // The cache will remember prices we ask for, so that we don't have to wait on every call
 // Cache should only return a price if it is not older than "maxAge", so that we don't get stale prices
+
 type TransparentCache struct {
 	actualPriceService PriceService
 	maxAge             time.Duration
-	prices             map[string]float64
+	prices             map[string]priceInformation
+}
+
+type priceInformation struct {
+	lastReading time.Time
+	value       float64
 }
 
 func NewTransparentCache(actualPriceService PriceService, maxAge time.Duration) *TransparentCache {
 	return &TransparentCache{
 		actualPriceService: actualPriceService,
 		maxAge:             maxAge,
-		prices:             map[string]float64{},
+		prices:             map[string]priceInformation{},
 	}
 }
 
@@ -32,15 +38,23 @@ func NewTransparentCache(actualPriceService PriceService, maxAge time.Duration) 
 func (c *TransparentCache) GetPriceFor(itemCode string) (float64, error) {
 	price, ok := c.prices[itemCode]
 	if ok {
-		// TODO: check that the price was retrieved less than "maxAge" ago!
-		return price, nil
+		// TODO: Improve validation
+		if (time.Now().Nanosecond() - price.lastReading.Nanosecond()) > int(c.maxAge.Nanoseconds()) {
+			return price.value, nil
+		}
 	}
-	price, err := c.actualPriceService.GetPriceFor(itemCode)
+	v, err := c.actualPriceService.GetPriceFor(itemCode)
 	if err != nil {
 		return 0, fmt.Errorf("getting price from service : %v", err.Error())
 	}
+
+	price = priceInformation{
+		lastReading: time.Now(),
+		value:       v,
+	}
+
 	c.prices[itemCode] = price
-	return price, nil
+	return price.value, nil
 }
 
 // GetPricesFor gets the prices for several items at once, some might be found in the cache, others might not
